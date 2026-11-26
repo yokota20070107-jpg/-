@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="出席管理">
+<meta name="theme-color" content="#3b6fe0">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ctext y=%27.9em%27 font-size=%2790%27%3E%F0%9F%93%8B%3C/text%3E%3C/svg%3E">
+<title>サークル出席管理</title>
+<style>
+:root{--bg:#f6f7f9;--fg:#1c2330;--mut:#6b7482;--card:#fff;--line:#dde1e8;--acc:#3b6fe0;--ok:#1f9d63;--ng:#d9475a;--late:#e08a1e;--early:#8a5cd6;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14171d;--fg:#e8ebf0;--mut:#98a1b0;--card:#1d222b;--line:#2f3641;--acc:#6b96f2;--ok:#3ec98a;--ng:#f0687a;--late:#f0a540;--early:#a98af0;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#14171d;--fg:#e8ebf0;--mut:#98a1b0;--card:#1d222b;--line:#2f3641;--acc:#6b96f2;--ok:#3ec98a;--ng:#f0687a;--late:#f0a540;--early:#a98af0;color-scheme:dark}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,"Hiragino Sans","Yu Gothic",Meiryo,sans-serif;line-height:1.5}
+main{max-width:780px;margin:0 auto;padding:16px}
+.hd{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:4px 0 12px}
+h1{font-size:20px;margin:0}
+h2{font-size:15px;margin:0 0 10px}
+.badge{font-size:12px;color:var(--mut);border:1px solid var(--line);border-radius:99px;padding:2px 10px;background:var(--card);white-space:nowrap}
+.tabs{display:flex;gap:6px;margin-bottom:14px}
+.tabs button{flex:1;padding:10px;border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:10px;font-size:15px;cursor:pointer}
+.tabs button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+input,select{padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);font-size:15px;min-width:0}
+input[type=text]{flex:1 1 120px}
+.btn{padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);font-size:14px;cursor:pointer}
+.btn.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+.btn.del{color:var(--ng)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip{display:inline-flex;gap:6px;align-items:center;padding:4px 6px 4px 10px;border:1px solid var(--line);border-radius:99px;font-size:14px}
+.chip button{border:0;background:none;color:var(--mut);cursor:pointer;font-size:16px;line-height:1}
+.mem{display:flex;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--line);flex-wrap:wrap}
+.mem:first-of-type{border-top:0}
+.mem .nm{flex:1 1 90px;font-weight:600;min-width:80px}
+.mem small{color:var(--mut);font-weight:400}
+.st{display:flex;gap:6px}
+.st button{padding:8px 11px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--mut);font-size:14px;cursor:pointer}
+.st button.p.on{background:var(--ok);border-color:var(--ok);color:#fff}
+.st button.a.on{background:var(--ng);border-color:var(--ng);color:#fff}
+.st button.l.on{background:var(--late);border-color:var(--late);color:#fff}
+.st button.e.on{background:var(--early);border-color:var(--early);color:#fff}
+.st button.x.on{background:var(--mut);border-color:var(--mut);color:#fff}
+.lamp{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:8px;vertical-align:middle;border:1px solid rgba(0,0,0,.25)}
+.lamp.g{background:var(--ok)}.lamp.y{background:#e8c21a}.lamp.r{background:var(--ng)}.lamp.k{background:#111;border-color:var(--mut)}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media(min-width:600px){.grid{grid-template-columns:repeat(4,1fr)}}
+.stat{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--card)}
+.stat .lb{font-size:13px;color:var(--mut)}
+.stat .v{font-size:28px;font-weight:700;margin:2px 0}
+.stat .c{font-size:12px;color:var(--mut)}
+.bar{height:8px;background:var(--line);border-radius:99px;overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:520px;font-size:14px}
+th,td{padding:8px 6px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left;font-weight:600}
+th{color:var(--mut);font-weight:500;font-size:13px}
+.note{font-size:12px;color:var(--mut);margin-top:8px}
+.empty{color:var(--mut);font-size:14px;padding:8px 0}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin:8px 0}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px}
+.warn{border-color:var(--late)}
+</style>
+</head>
+<body>
+<main>
+<div class="hd"><h1>サークル出席管理</h1><span class="badge" id="bd"></span></div>
+<div class="tabs"><button id="t-in" data-tab="in">入力</button><button id="t-st" data-tab="st">集計</button><button id="t-cf" data-tab="cf">設定</button></div>
+<div id="ms" class="note" style="margin:-6px 0 10px"></div>
+<div id="app"></div>
+</main>
+<script>
+var LK='circle-attendance-v1',LK2='circle-attendance-v2';
+var COLS=['members','dates','grades','reasons','rec'];
+var D={members:{},dates:{},grades:{},reasons:{},rec:{}};
+var db=null,conn='loading',tab='in',cur=null,gran='month',R={from:'',to:''},note='',old=null;
+
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]});}
+function p2(n){return ('0'+n).slice(-2);}
+function today(){var d=new Date();return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());}
+function pd(s){var p=s.split('-');return new Date(+p[0],+p[1]-1,+p[2]);}
+function fmt(d){return (+d.split('-')[1])+'/'+(+d.split('-')[2])+'('+'日月火水木金土'[pd(d).getDay()]+')';}
+function pct(n,t){return t?Math.round(n/t*1000)/10:0;}
+function show(n,t){return t?pct(n,t).toFixed(1)+'%':'–';}
+function uid(){return 'm'+Date.now().toString(36)+Math.floor(Math.random()*1e5).toString(36);}
+function byT(c){return Object.keys(D[c]).sort(function(a,b){return (D[c][a].t||0)-(D[c][b].t||0)||(D[c][a].name>D[c][b].name?1:-1);});}
+function ml(){var gi={};byT('grades').forEach(function(g,i){gi[g]=i;});
+  return Object.keys(D.members).sort(function(a,b){var A=D.members[a],B=D.members[b],ga=gi[A.grade]!==undefined?gi[A.grade]:999,gb=gi[B.grade]!==undefined?gi[B.grade]:999;return ga-gb||(A.kana||A.name).localeCompare(B.kana||B.name,'ja');});}
+function mst(o){return o.st||(o.xf?'leave':'active');}
+function inLeave(d,m){var o=D.members[m];return !!(o&&mst(o)==='leave'&&(!o.xf||d>=o.xf)&&(!o.xt||d<=o.xt));}
+function eff(d,m){var x=D.rec[d+'_'+m];if(x&&x.s)return x;return inLeave(d,m)?{s:'x'}:x;}
+function streak(m,asOf){var n=0,ds=Object.keys(D.dates).sort();for(var i=ds.length-1;i>=0;i--){var d=ds[i];if(d>asOf)continue;var x=eff(d,m);if(!x||!x.s||x.s==='x')continue;if(x.s==='a')n++;else break;}return n;}
+function lamp(n){var c=n>=5?'k':n>=3?'r':n>=2?'y':'g';return '<span class="lamp '+c+'" title="連続欠席 '+n+'回"></span>';}
+function dl(){return Object.keys(D.dates).filter(function(d){return (!R.from||d>=R.from)&&(!R.to||d<=R.to);}).sort();}
+
+/* ---- storage ---- */
+function lload(){try{var r=localStorage.getItem(LK2);if(r){var o=JSON.parse(r);COLS.forEach(function(c){D[c]=o[c]||{};});}}catch(e){}}
+function lsave(){try{localStorage.setItem(LK2,JSON.stringify(D));}catch(e){}}
+function oldData(){try{var r=localStorage.getItem(LK);if(r){var o=JSON.parse(r);if(o&&o.members&&o.members.length)return o;}}catch(e){}return null;}
+function msg(t){note=t;render();setTimeout(function(){if(note===t){note='';render();}},6000);}
+function werr(){msg('保存できませんでした。閲覧のみの権限か、通信が不安定な可能性があります。');}
+function put(c,id,o){if(db){db.doc(c+'/'+id).set(o).catch(werr);}else{D[c][id]=o;lsave();render();}}
+function del(c,id){if(db){db.doc(c+'/'+id).delete().catch(werr);}else{delete D[c][id];lsave();render();}}
+
+/* ---- stats ---- */
+function stats(ids,dates){
+  var r={p:0,a:0,l:0,e:0,t:0,x:0};
+  ids.forEach(function(m){dates.forEach(function(d){
+    var x=eff(d,m);if(!x||!x.s)return;
+    if(x.s==='x'){r.x++;return;}
+    r.t++;if(x.s==='p'){r.p++;if(x.l)r.l++;if(x.e)r.e++;}else r.a++;
+  });});
+  return r;
+}
+function statCard(lb,n,t,col){
+  return '<div class="stat"><div class="lb">'+lb+'</div><div class="v" style="color:'+col+'">'+show(n,t)+'</div><div class="c">'+n+' / '+t+' 回</div><div class="bar"><i style="width:'+pct(n,t)+'%;background:'+col+'"></i></div></div>';
+}
+var HD='<th>出席率</th><th>欠席率</th><th>遅刻率</th><th>早退率</th><th>記録数</th>';
+function rt(label,s,extra){
+  return '<tr><td>'+label+'</td>'+(extra||'')+'<td style="color:var(--ok)">'+show(s.p,s.t)+'</td><td style="color:var(--ng)">'+show(s.a,s.t)+'</td><td style="color:var(--late)">'+show(s.l,s.t)+' <small>('+s.l+')</small></td><td style="color:var(--early)">'+show(s.e,s.t)+' <small>('+s.e+')</small></td><td>'+s.t+(s.x?' <small>(休団'+s.x+')</small>':'')+'</td></tr>';
+}
+function tbl(head,rows){return '<div class="scroll"><table><tr>'+head+'</tr>'+rows+'</table></div>';}
+function wk(d){var dt=pd(d);dt.setDate(dt.getDate()-(dt.getDay()+6)%7);return dt.getFullYear()+'-'+p2(dt.getMonth()+1)+'-'+p2(dt.getDate());}
+function gkey(d){return gran==='day'?d:gran==='week'?wk(d):d.slice(0,7);}
+function glabel(k){return gran==='month'?k.replace('-','/').replace('/0','/'):(+k.split('-')[1])+'/'+(+k.split('-')[2])+(gran==='week'?'〜':'');}
+
+function chart(rows){
+  var W=640,H=230,L=40,RR=14,T=12,B=30,w=W-L-RR,h=H-T-B,n=rows.length;
+  function x(i){return L+(n===1?w/2:w*i/(n-1));}
+  function y(v){return T+h*(1-v/100);}
+  var g='';
+  [0,25,50,75,100].forEach(function(v){g+='<line x1="'+L+'" x2="'+(W-RR)+'" y1="'+y(v)+'" y2="'+y(v)+'" stroke="var(--line)"/><text x="'+(L-6)+'" y="'+(y(v)+4)+'" text-anchor="end" font-size="11" fill="var(--mut)">'+v+'%</text>';});
+  var step=Math.ceil(n/8);
+  rows.forEach(function(r,i){if(i%step===0)g+='<text x="'+x(i)+'" y="'+(H-10)+'" text-anchor="middle" font-size="11" fill="var(--mut)">'+esc(r.label)+'</text>';});
+  [['p','--ok'],['a','--ng'],['l','--late'],['e','--early']].forEach(function(s){
+    var pts=rows.map(function(r,i){return x(i)+','+y(pct(r[s[0]],r.t));});
+    if(n>1)g+='<polyline fill="none" stroke="var('+s[1]+')" stroke-width="2" points="'+pts.join(' ')+'"/>';
+    rows.forEach(function(r,i){g+='<circle cx="'+x(i)+'" cy="'+y(pct(r[s[0]],r.t))+'" r="3" fill="var('+s[1]+')"/>';});
+  });
+  return '<svg viewBox="0 0 '+W+' '+H+'" width="100%" role="img" aria-label="出席率の推移">'+g+'</svg>';
+}
+
+var PAL=['#3b6fe0','#1f9d63','#e08a1e','#d9475a','#8a5cd6','#14a5b8','#8b8f98'];
+function chart2(labels,series){
+  var W=640,H=230,L=40,RR=14,T=12,B=30,w=W-L-RR,h=H-T-B,n=labels.length;
+  function x(i){return L+(n===1?w/2:w*i/(n-1));}
+  function y(v){return T+h*(1-v/100);}
+  var g='';
+  [0,25,50,75,100].forEach(function(v){g+='<line x1="'+L+'" x2="'+(W-RR)+'" y1="'+y(v)+'" y2="'+y(v)+'" stroke="var(--line)"/><text x="'+(L-6)+'" y="'+(y(v)+4)+'" text-anchor="end" font-size="11" fill="var(--mut)">'+v+'%</text>';});
+  var step=Math.ceil(n/8);
+  labels.forEach(function(l,i){if(i%step===0)g+='<text x="'+x(i)+'" y="'+(H-10)+'" text-anchor="middle" font-size="11" fill="var(--mut)">'+esc(l)+'</text>';});
+  series.forEach(function(s){
+    var pts=[];s.vals.forEach(function(v,i){if(v!==null)pts.push([x(i),y(v)]);});
+    if(pts.length>1)g+='<polyline fill="none" stroke="'+s.color+'" stroke-width="2" points="'+pts.map(function(p){return p.join(',');}).join(' ')+'"/>';
+    pts.forEach(function(p){g+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="3" fill="'+s.color+'"/>';});
+  });
+  return '<svg viewBox="0 0 '+W+' '+H+'" width="100%" role="img" aria-label="学年別の出席率の推移">'+g+'</svg>';
+}
+/* ---- views ---- */
+function viewIn(){
+  var ms=ml(),ds=Object.keys(D.dates).sort(),rs=byT('reasons'),lg=null,h='';
+  h+='<div class="card"><h2>日にち</h2><div class="row"><input type="date" id="dt" value="'+today()+'"><button class="btn pri" data-act="addd">日にちを追加</button></div>';
+  if(ds.length){
+    h+='<div class="row" style="margin-top:10px"><select id="sel" data-ch="sel">'+ds.slice().reverse().map(function(d){return '<option value="'+d+'"'+(d===cur?' selected':'')+'>'+d+' '+fmt(d)+'</option>';}).join('')+'</select><button class="btn del" data-act="deld">この日を削除</button></div>';
+  }
+  h+='</div>';
+  if(cur&&ms.length){
+    h+='<div class="card"><div class="row" style="justify-content:space-between;margin-bottom:6px"><h2 style="margin:0">'+fmt(cur)+' の出欠</h2><button class="btn" data-act="allp">全員出席にする</button></div>';
+    ms.forEach(function(id){
+      var m=D.members[id],x=eff(cur,id)||{},g=D.grades[m.grade];
+      if(m.grade!==lg){lg=m.grade;h+='<div class="note" style="font-weight:600;margin:10px 0 0">'+(g?esc(g.name):'学年なし')+'</div>';}
+      h+='<div class="mem"><span class="nm">'+lamp(streak(id,cur))+esc(m.name)+(g?' <small>'+esc(g.name)+'</small>':'')+'</span><div class="st" data-id="'+id+'">'
+        +'<button class="p'+(x.s==='p'?' on':'')+'" data-b="p">出席</button>'
+        +'<button class="a'+(x.s==='a'?' on':'')+'" data-b="a">欠席</button>'
+        +'<button class="l'+(x.l?' on':'')+'" data-b="l">遅刻</button>'
+        +'<button class="e'+(x.e?' on':'')+'" data-b="e">早退</button>'
+        +'<button class="x'+(x.s==='x'?' on':'')+'" data-b="x">休団</button></div>';
+      if(x.s==='a'||x.l||x.e){
+        h+='<select data-ch="rsn" data-id="'+id+'"><option value="">理由を選択</option>'+rs.map(function(r){return '<option value="'+r+'"'+(x.r===r?' selected':'')+'>'+esc(D.reasons[r].name)+'</option>';}).join('')+'<option value="other"'+(x.r==='other'?' selected':'')+'>その他</option></select>';
+        if(x.r==='other')h+='<input type="text" id="note_'+cur+'_'+id+'" data-ch="note" data-id="'+id+'" placeholder="その他の内容(任意)" maxlength="60" value="'+esc(x.n||'')+'">';
+      }
+      h+='</div>';
+    });
+    h+='<div class="note">遅刻・早退は出席した人に付けられます(押すと自動で出席になります)。休団は出席にも欠席にも数えません。名前の左のランプは連続欠席の目安です(緑=通常、黄=2回連続、赤=3〜4回連続、黒=5回以上連続)。欠席・遅刻・早退のときは理由も選べます(理由は「設定」で追加)。</div></div>';
+  }else{
+    h+='<div class="card empty">'+(ms.length?'日にちを追加すると出欠ボタンが表示されます。':'「設定」タブでメンバーを追加してください。')+'</div>';
+  }
+  return h;
+}
+
+function viewSt(){
+  var ids=Object.keys(D.members),ds=dl(),all=stats(ids,ds),h='';
+  h+='<div class="card"><h2>集計期間</h2><div class="row"><input type="date" data-ch="f1" value="'+R.from+'"><span>〜</span><input type="date" data-ch="f2" value="'+R.to+'"><button class="btn" data-act="clr">全期間</button></div></div>';
+  if(!all.t)return h+'<div class="card empty">この期間に入力された出欠がありません。</div>';
+  h+='<div class="card"><h2>全体('+ds.length+'日 × '+ids.length+'人)</h2><div class="grid">'
+    +statCard('出席率',all.p,all.t,'var(--ok)')+statCard('欠席率',all.a,all.t,'var(--ng)')
+    +statCard('遅刻率',all.l,all.t,'var(--late)')+statCard('早退率',all.e,all.t,'var(--early)')+'</div>'
+    +'<div class="note">各率 = 該当回数 ÷ 入力済みの回数(出席+欠席)。遅刻・早退は出席の内数です。休団は出席・欠席のどちらにも数えません。</div></div>';
+
+  /* trend */
+  var gs={};ds.forEach(function(d){var k=gkey(d);(gs[k]=gs[k]||[]).push(d);});
+  var trows=Object.keys(gs).sort().map(function(k){var s=stats(ids,gs[k]);s.label=glabel(k);return s;}).filter(function(s){return s.t;});
+  h+='<div class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">推移</h2><select data-ch="gran"><option value="day"'+(gran==='day'?' selected':'')+'>日ごと</option><option value="week"'+(gran==='week'?' selected':'')+'>週ごと</option><option value="month"'+(gran==='month'?' selected':'')+'>月ごと</option></select></div>'
+    +'<div class="legend"><span><i style="background:var(--ok)"></i>出席率</span><span><i style="background:var(--ng)"></i>欠席率</span><span><i style="background:var(--late)"></i>遅刻率</span><span><i style="background:var(--early)"></i>早退率</span></div>'
+    +chart(trows)+tbl('<th>期間</th>'+HD,trows.slice().reverse().map(function(s){return rt(esc(s.label),s);}).join(''))+'</div>';
+
+  /* grades */
+  var gr=byT('grades'),grows='',gser=[];
+  gr.concat(['']).forEach(function(g){
+    var mm=ids.filter(function(m){return (D.members[m].grade&&D.grades[D.members[m].grade]?D.members[m].grade:'')===g;});
+    if(!mm.length)return;
+    if(g===''&&!gr.length)return;
+    var gv=Object.keys(gs).sort().map(function(k){var s2=stats(mm,gs[k]);return s2.t?pct(s2.p,s2.t):null;});
+    gser.push({name:g?D.grades[g].name:'未設定',color:PAL[gser.length%PAL.length],vals:gv});
+    grows+=rt(g?esc(D.grades[g].name):'未設定',stats(mm,ds),'<td>'+mm.length+'人</td>');
+  });
+  if(grows)h+='<div class="card"><h2>学年ごと</h2>'+tbl('<th>学年</th><th>人数</th>'+HD,grows)+'</div>';
+  if(gser.length)h+='<div class="card"><h2>学年別 出席率の推移</h2><div class="legend">'+gser.map(function(s){return '<span><i style="background:'+s.color+'"></i>'+esc(s.name)+'</span>';}).join('')+'</div>'+chart2(Object.keys(gs).sort().map(glabel),gser)+'<div class="note">期間の単位は上の「推移」の切り替え(日・週・月)と同じです。</div></div>';
+
+  /* members */
+  h+='<div class="card"><h2>名前ごと</h2>'+tbl('<th>名前</th><th>学年</th>'+HD,ml().map(function(m){
+    var g=D.grades[D.members[m].grade];
+    return rt(lamp(streak(m,ds[ds.length-1]))+esc(D.members[m].name),stats([m],ds),'<td>'+(g?esc(g.name):'–')+'</td>');}).join(''))+'</div>';
+
+  /* weekday */
+  var wrows='';
+  [1,2,3,4,5,6,0].forEach(function(w){
+    var dd=ds.filter(function(d){return pd(d).getDay()===w;});
+    var s=stats(ids,dd);if(s.t||s.x)wrows+=rt('日月火水木金土'[w]+'曜日',s);
+  });
+  if(wrows)h+='<div class="card"><h2>曜日ごと</h2>'+tbl('<th>曜日</th>'+HD,wrows)+'</div>';
+
+  /* reasons */
+  var rc={},any=0;
+  Object.keys(D.rec).forEach(function(k){
+    var x=D.rec[k];if(!x||!D.members[x.m]||ds.indexOf(x.d)<0)return;
+    if(!(x.s==='a'||x.l||x.e))return;
+    var r=x.r==='other'||(x.r&&D.reasons[x.r])?x.r:'';var o=rc[r]=rc[r]||{a:0,l:0,e:0};
+    if(x.s==='a')o.a++;if(x.l)o.l++;if(x.e)o.e++;any=1;
+  });
+  if(any){
+    var rrows='';
+    byT('reasons').concat(['other','']).forEach(function(r){var o=rc[r];if(!o)return;
+      rrows+='<tr><td>'+(r==='other'?'その他':r?esc(D.reasons[r].name):'理由未入力')+'</td><td>'+o.a+'</td><td>'+o.l+'</td><td>'+o.e+'</td></tr>';});
+    h+='<div class="card"><h2>理由ごと(回数)</h2>'+tbl('<th>理由</th><th>欠席</th><th>遅刻</th><th>早退</th>',rrows)+'</div>';
+    var nrows='';
+    Object.keys(D.rec).filter(function(k){var x=D.rec[k];return x&&x.n&&D.members[x.m]&&ds.indexOf(x.d)>=0;}).sort(function(a,b){return D.rec[a].d>D.rec[b].d?-1:1;}).forEach(function(k){
+      var x=D.rec[k],st=[];if(x.s==='a')st.push('欠席');if(x.l)st.push('遅刻');if(x.e)st.push('早退');
+      nrows+='<tr><td>'+fmt(x.d)+'</td><td>'+esc(D.members[x.m].name)+'</td><td>'+st.join('・')+'</td><td style="white-space:normal;text-align:left">'+esc(x.n)+'</td></tr>';});
+    if(nrows)h+='<div class="card"><h2>その他の記述</h2>'+tbl('<th>日にち</th><th>名前</th><th>区分</th><th>内容</th>',nrows)+'</div>';
+  }
+  return h;
+}
+
+function viewCf(){
+  var ms=ml(),gr=byT('grades'),rs=byT('reasons'),h='';
+  if(old&&!ms.length&&(conn==='ok'||conn==='local')){
+    h+='<div class="card warn"><h2>以前のデータがあります</h2><div class="note" style="margin:0 0 8px">このブラウザに保存されていた以前の出席データを、現在のデータに取り込めます。</div><button class="btn pri" data-act="mig">取り込む</button></div>';
+  }
+  var gopt='<option value="">学年なし</option>'+gr.map(function(g){return '<option value="'+g+'">'+esc(D.grades[g].name)+'</option>';}).join('');
+  h+='<div class="card"><h2>メンバー</h2><div class="row"><input type="text" id="nm" placeholder="名前を入力" maxlength="30"><input type="text" id="nk" placeholder="読み仮名(任意)" maxlength="30"><select id="ngr">'+gopt+'</select><button class="btn pri" data-act="addm">追加</button></div>';
+  if(ms.length){
+    h+='<div style="margin-top:8px">'+ms.map(function(id){
+      var m=D.members[id];
+      return '<div class="mem"><span class="nm">'+esc(m.name)+'</span><input type="text" data-ch="kana" data-id="'+id+'" placeholder="読み仮名" maxlength="30" value="'+esc(m.kana||'')+'" style="flex:1 1 100px"><select data-ch="mgr" data-id="'+id+'">'+gopt.replace('value="'+m.grade+'"','value="'+m.grade+'" selected')+'</select><select data-ch="mst" data-id="'+id+'"><option value="active"'+(mst(m)==='active'?' selected':'')+'>現団</option><option value="leave"'+(mst(m)==='leave'?' selected':'')+'>休団</option></select><button class="btn del" data-act="delm" data-id="'+id+'">削除</button>'+(mst(m)==='leave'?'<div class="row" style="flex-basis:100%;font-size:13px;color:var(--mut)">休団期間 <input type="date" data-ch="xf" data-id="'+id+'" value="'+(m.xf||'')+'"> 〜 <input type="date" data-ch="xt" data-id="'+id+'" value="'+(m.xt||'')+'"> 開始日が空なら最初から、終了日が空なら休団中</div>':'')+'</div>';
+    }).join('')+'</div>';
+  }else h+='<div class="empty">まだ誰もいません</div>';
+  h+='</div>';
+  h+='<div class="card"><h2>理由の項目(欠席・遅刻・早退)</h2><div class="row"><input type="text" id="rnm" placeholder="例: 授業、バイト、体調不良" maxlength="20"><button class="btn pri" data-act="addr">追加</button>'+(rs.length?'':'<button class="btn" data-act="seedr">よくある理由を追加</button>')+'</div>'
+    +'<div class="chips">'+rs.map(function(r){return '<span class="chip">'+esc(D.reasons[r].name)+'<button data-act="delr" data-id="'+r+'" aria-label="削除">×</button></span>';}).join('')+'</div></div>';
+  h+='<div class="card"><h2>データの保存・移行</h2><div class="row"><button class="btn" data-act="exj">バックアップ(JSON)</button><label class="btn" style="cursor:pointer">読み込み<input type="file" id="imf" accept=".json,application/json" hidden></label><button class="btn" data-act="exc">CSV出力</button></div><div class="note">データはこの端末のこのブラウザに保存されます。機種変更やブラウザのデータ消去に備えて、ときどきバックアップを取ってください。バックアップは別の端末で「読み込み」から復元できます。</div><div class="row" style="margin-top:10px"><button class="btn del" data-act="wipe">全データを消去</button></div></div>';
+  return h;
+}
+
+function render(){
+  var ds=Object.keys(D.dates).sort();
+  if(!cur||!D.dates[cur])cur=ds.length?ds[ds.length-1]:null;
+  var fid=document.activeElement&&document.activeElement.id,val={};
+  var ids0=['nm','nk','ngr','gnm','rnm','dt'];document.querySelectorAll('#app input[id^="note_"]').forEach(function(e){ids0.push(e.id);});
+  ids0.forEach(function(i){var e=document.getElementById(i);if(e)val[i]=e.value;});
+  ['in','st','cf'].forEach(function(t){document.getElementById('t-'+t).className=tab===t?'on':'';});
+  document.getElementById('bd').textContent=conn==='ok'?'共有保存 ✓':conn==='loading'?'接続中…':conn==='slow'?'接続できていません':'この端末のみ保存';
+  document.getElementById('ms').textContent=note||(conn==='slow'?'共有データにまだ接続できません。通信環境を確認してください。':'');
+  document.getElementById('app').innerHTML=tab==='in'?viewIn():tab==='st'?viewSt():viewCf();
+  for(var k in val){var e=document.getElementById(k);if(e)e.value=val[k];}
+  if(fid&&val[fid]!==undefined){var f=document.getElementById(fid);if(f&&f.focus)f.focus();}
+}
+
+/* ---- actions ---- */
+function recSet(d,m,x){put('rec',d+'_'+m,{d:d,m:m,s:x.s||'',l:x.l?1:0,e:x.e?1:0,r:x.r||'',n:x.r==='other'?(x.n||''):''});}
+document.addEventListener('click',function(ev){
+  var t=ev.target.closest('button');if(!t)return;
+  if(t.dataset.tab){tab=t.dataset.tab;render();return;}
+  var a=t.dataset.act,id=t.dataset.id;
+  if(a==='addm'){var i=document.getElementById('nm'),v=i.value.trim();if(!v)return;
+    if(Object.keys(D.members).some(function(k){return D.members[k].name===v;})){msg('同じ名前がすでにいます。');return;}
+    var nk=document.getElementById('nk');put('members',uid(),{name:v,kana:nk.value.trim(),grade:document.getElementById('ngr').value,t:Date.now()});i.value='';nk.value='';return;}
+  if(a==='delm'){var m=D.members[id];if(m&&confirm('「'+m.name+'」を削除しますか?この人の記録も消えます。')){
+      Object.keys(D.rec).forEach(function(k){if(D.rec[k].m===id)del('rec',k);});del('members',id);}return;}
+  if(a==='addd'){var d=document.getElementById('dt').value;if(!d)return;if(!D.dates[d])put('dates',d,{d:d});cur=d;render();return;}
+  if(a==='deld'){if(cur&&confirm(cur+' の記録を削除しますか?')){var c=cur;
+      Object.keys(D.rec).forEach(function(k){if(D.rec[k].d===c)del('rec',k);});del('dates',c);}return;}
+  if(a==='allp'){Object.keys(D.members).forEach(function(m){if(!inLeave(cur,m))recSet(cur,m,{s:'p'});});return;}
+  if(a==='addg'||a==='addr'){var col=a==='addg'?'grades':'reasons',el=document.getElementById(a==='addg'?'gnm':'rnm'),n=el.value.trim();if(!n)return;
+    if(Object.keys(D[col]).some(function(k){return D[col][k].name===n;})){el.value='';return;}
+    put(col,uid(),{name:n,t:Date.now()});el.value='';return;}
+  if(a==='seedg'||a==='seedr'){var cc=a==='seedg'?'grades':'reasons',L=a==='seedg'?['1年','2年','3年','4年']:['授業','バイト','体調不良','就活','寝坊','交通機関','私用'];
+    L.forEach(function(n,i){put(cc,uid(),{name:n,t:Date.now()+i});});return;}
+  if(a==='delg'){var g=D.grades[id];if(g&&confirm('学年「'+g.name+'」を削除しますか?該当メンバーは「学年なし」になります。')){
+      Object.keys(D.members).forEach(function(k){if(D.members[k].grade===id){var m2=Object.assign({},D.members[k]);m2.grade='';put('members',k,m2);}});del('grades',id);}return;}
+  if(a==='delr'){var r=D.reasons[id];if(r&&confirm('理由「'+r.name+'」を削除しますか?記録の理由は「未入力」になります。')){
+      Object.keys(D.rec).forEach(function(k){if(D.rec[k].r===id){var x2=Object.assign({},D.rec[k]);x2.r='';put('rec',k,x2);}});del('reasons',id);}return;}
+  if(a==='clr'){R={from:'',to:''};render();return;}
+  if(a==='mig'&&old){
+    old.members.forEach(function(m,i){put('members',m.id,{name:m.name,grade:'',t:Date.now()+i});});
+    (old.dates||[]).forEach(function(d){put('dates',d,{d:d});});
+    Object.keys(old.rec||{}).forEach(function(k){var p=k.split('|'),x=old.rec[k];recSet(p[0],p[1],x);});
+    try{localStorage.removeItem(LK);}catch(e){}old=null;render();return;}
+  if(t.dataset.b){
+    var mid=t.parentNode.dataset.id,b=t.dataset.b,o=D.rec[cur+'_'+mid]||{},x={s:o.s||'',l:o.l?1:0,e:o.e?1:0,r:o.r||'',n:o.n||''};
+    if(b==='p'){if(x.s==='p'&&(x.l||x.e)){x={s:'p',l:0,e:0,r:''};}else if(x.s==='p'){x={s:'',l:0,e:0,r:''};}else{x={s:'p',l:0,e:0,r:''};}}
+    else if(b==='a'){x=x.s==='a'?{s:'',l:0,e:0,r:''}:{s:'a',l:0,e:0,r:x.r,n:x.n};}
+    else if(b==='x'){x=x.s==='x'?{s:'',l:0,e:0,r:''}:{s:'x',l:0,e:0,r:''};}
+    else{x.s='p';x[b]=x[b]?0:1;if(!x.l&&!x.e){x.r='';x.n='';}}
+    recSet(cur,mid,x);
+  }
+});
+document.addEventListener('change',function(ev){
+  var t=ev.target,c=t.dataset.ch;if(!c)return;
+  if(c==='sel'){cur=t.value;render();}
+  else if(c==='gran'){gran=t.value;render();}
+  else if(c==='f1'){R.from=t.value;render();}
+  else if(c==='f2'){R.to=t.value;render();}
+  else if(c==='mgr'||c==='kana'||c==='xf'||c==='xt'||c==='mst'){var m=D.members[t.dataset.id];if(m){var m2=Object.assign({},m);m2[{mgr:'grade',kana:'kana',xf:'xf',xt:'xt',mst:'st'}[c]]=c==='kana'?t.value.trim():t.value;put('members',t.dataset.id,m2);}}
+  else if(c==='rsn'){var o=D.rec[cur+'_'+t.dataset.id];if(o){var x=Object.assign({},o);x.r=t.value;if(t.value!=='other')x.n='';recSet(cur,t.dataset.id,x);}}
+  else if(c==='note'){var o2=D.rec[cur+'_'+t.dataset.id];if(o2){var x3=Object.assign({},o2);x3.n=t.value.trim();recSet(cur,t.dataset.id,x3);}}
+});
+document.addEventListener('keydown',function(ev){
+  if(ev.key!=='Enter')return;
+  var m={nm:'addm',nk:'addm',gnm:'addg',rnm:'addr'}[ev.target.id];
+  if(m){ev.preventDefault();var b=document.querySelector('[data-act='+m+']');if(b)b.click();}
+});
+
+/* ---- standalone: local storage only ---- */
+function seedG(){['1年','2年','3年','4年','M1','M2'].forEach(function(n,i){D.grades['g'+(i+1)]={name:n,t:i+1};});lsave();}
+function dlf(name,text,type){var b=new Blob([text],{type:type}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},500);}
+function csvf(v){v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
+document.addEventListener('click',function(ev){
+  var t=ev.target.closest('button');if(!t)return;var a=t.dataset.act;
+  if(a==='exj'){dlf('attendance-backup-'+today()+'.json',JSON.stringify(D),'application/json');}
+  else if(a==='exc'){
+    var rows=[['日付','名前','学年','区分','遅刻','早退','理由','その他の内容']];
+    Object.keys(D.rec).map(function(k){return D.rec[k];}).filter(function(x){return x&&x.s&&D.members[x.m];}).sort(function(a,b){return a.d>b.d?1:a.d<b.d?-1:0;}).forEach(function(x){
+      var m=D.members[x.m],g=D.grades[m.grade];
+      rows.push([x.d,m.name,g?g.name:'',{p:'出席',a:'欠席',x:'休団'}[x.s],x.l?1:'',x.e?1:'',x.r==='other'?'その他':(D.reasons[x.r]?D.reasons[x.r].name:''),x.n||'']);
+    });
+    dlf('attendance-'+today()+'.csv','\ufeff'+rows.map(function(r){return r.map(csvf).join(',');}).join('\r\n'),'text/csv');
+  }
+  else if(a==='wipe'){if(confirm('すべてのデータ(メンバー・日にち・出欠・理由)を消去します。元に戻せません。よろしいですか?')){D={members:{},dates:{},grades:{},reasons:{},rec:{}};seedG();render();}}
+});
+document.addEventListener('change',function(ev){
+  if(ev.target.id!=='imf')return;var f=ev.target.files[0];if(!f)return;
+  var r=new FileReader();
+  r.onload=function(){try{var o=JSON.parse(r.result);if(!o||!o.members||!o.rec)throw 0;
+    if(!confirm('現在のデータを、読み込んだデータで置き換えます。よろしいですか?'))return;
+    COLS.forEach(function(c){D[c]=o[c]||{};});if(!Object.keys(D.grades).length)seedG();lsave();render();msg('読み込みました。');
+  }catch(e){msg('読み込めませんでした。バックアップ(JSON)ファイルを選んでください。');}};
+  r.readAsText(f);ev.target.value='';
+});
+(function(){try{var c=document.createElement('canvas');c.width=c.height=180;var x=c.getContext('2d');x.fillStyle='#3b6fe0';x.fillRect(0,0,180,180);x.font='110px sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText('📋',90,98);var l=document.createElement('link');l.rel='apple-touch-icon';l.href=c.toDataURL('image/png');document.head.appendChild(l);}catch(e){}})();
+lload();
+if(!Object.keys(D.grades).length&&!Object.keys(D.members).length)seedG();
+conn='local';render();
+</script>
+</body>
+</html>
