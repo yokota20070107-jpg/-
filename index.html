@@ -36,6 +36,7 @@ textarea{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:
 .btn{padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);font-size:14px;cursor:pointer}
 .btn.pri{background:var(--acc);border-color:var(--acc);color:#fff}
 .btn.del{color:var(--ng)}
+.st button:disabled,.btn:disabled,select:disabled,input:disabled{opacity:.55;cursor:not-allowed}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .chip{display:inline-flex;gap:6px;align-items:center;padding:4px 6px 4px 10px;border:1px solid var(--line);border-radius:99px;font-size:14px}
 .chip button{border:0;background:none;color:var(--mut);cursor:pointer;font-size:16px;line-height:1}
@@ -111,8 +112,8 @@ function oldData(){try{var r=localStorage.getItem(LK);if(r){var o=JSON.parse(r);
 function msg(t){note=t;render();setTimeout(function(){if(note===t){note='';render();}},6000);}
 function werr(){msg('保存できませんでした。閲覧のみの権限か、通信が不安定な可能性があります。');}
 function cn(c,id){id=id||sh;return id==='main'?c:'x'+id+'_'+c;}
-function put(c,id,o){if(db){db.doc(cn(c)+'/'+id).set(o).catch(werr);}else{D[c][id]=o;lsave();render();}}
-function del(c,id){if(db){db.doc(cn(c)+'/'+id).delete().catch(werr);}else{delete D[c][id];lsave();render();}}
+function put(c,id,o){logChange(c,id,(D[c]&&D[c][id])||(DEL[c]&&DEL[c][id])||null,o);if(db){db.doc(cn(c)+'/'+id).set(o).catch(werr);}else{D[c][id]=o;lsave();render();}}
+function del(c,id){logChange(c,id,(D[c]&&D[c][id])||(DEL[c]&&DEL[c][id])||null,null);if(db){db.doc(cn(c)+'/'+id).delete().catch(werr);}else{delete D[c][id];lsave();render();}}
 function tabList(){var ids=Object.keys(TB);if(ids.indexOf('main')<0)ids.push('main');return ids.sort(function(a,b){var A=a==='main'?((TB.main&&TB.main.t)||0):(TB[a].t||0),B=b==='main'?((TB.main&&TB.main.t)||0):(TB[b].t||0);return A-B;});}
 function tname(id){return TB[id]&&TB[id].name?TB[id].name:(id==='main'?'メイン':'タブ');}
 function subData(){
@@ -121,7 +122,7 @@ function subData(){
   COLS.forEach(function(c){
     unsubs.push(db.collection(cn(c,my)).onSnapshot(function(s){
       if(my!==sh)return;
-      var o={};s.docs.forEach(function(x){o[x.id]=x.data();});D[c]=o;gotc[c]=1;
+      var o={},dd={};s.docs.forEach(function(x){var v=x.data();if((c==='members'||c==='dates')&&v.del)dd[x.id]=v;else o[x.id]=v;});D[c]=o;if(c==='members'||c==='dates')DEL[c]=dd;gotc[c]=1;
       if(Object.keys(gotc).length===COLS.length)conn='ok';render();
     },function(){msg('共有データを読み込めません。');}));
   });
@@ -129,10 +130,10 @@ function subData(){
 function switchTab(id){
   if(id===sh)return;
   sh=id;try{localStorage.setItem('att-sh',id);}catch(e){}
-  cur=null;D={members:{},dates:{},grades:{},reasons:{},rec:{}};conn='loading';addTab=false;
+  cur=null;D={members:{},dates:{},grades:{},reasons:{},rec:{}};DEL={members:{},dates:{}};conn='loading';addTab=false;
   subData();render();
 }
-function tabCard(){return '<div class="card"><h2>このタブ</h2><div class="row"><input type="text" id="tnm" value="'+esc(tname(sh))+'" maxlength="20"><button class="btn pri" data-act="rntab">名前を変更</button>'+(sh==='main'?'':'<button class="btn del" data-act="deltab">このタブを削除</button>')+'</div><div class="note">タブごとに、メンバー・日にち・出欠・理由が別々に保存されます。上のタブ列の「＋」で新しいタブを作れます。'+(sh==='main'?'最初のタブ(メイン)は削除できません。':'')+'</div></div>';}
+function tabCard(){return '<div class="card"><h2>このタブ</h2><div class="row"><input type="text" id="tnm" value="'+esc(tname(sh))+'" maxlength="20"><button class="btn pri" data-act="rntab">名前を変更</button>'+(sh==='main'?'':'<button class="btn del" data-act="deltab">このタブをごみ箱へ</button>')+'</div><div class="note">タブごとに、メンバー・日にち・出欠・理由が別々に保存されます。上のタブ列の「＋」で新しいタブを作れます。'+(sh==='main'?'最初のタブ(メイン)は削除できません。':'')+'</div></div>';}
 
 /* ---- stats ---- */
 function stats(ids,dates){
@@ -190,26 +191,26 @@ function chart2(labels,series){
 }
 /* ---- views ---- */
 function viewIn(){
-  var ms=ml(),ds=Object.keys(D.dates).sort(),rs=byT('reasons'),lg=null,h='';
+  var ms=ml(),ds=Object.keys(D.dates).sort(),rs=byT('reasons'),lg=null,h=nameBanner();
   h+='<div class="card"><h2>日にち</h2><div class="row"><input type="date" id="dt" value="'+today()+'"><button class="btn pri" data-act="addd">日にちを追加</button></div>';
   if(ds.length){
-    h+='<div class="row" style="margin-top:10px"><select id="sel" data-ch="sel">'+ds.slice().reverse().map(function(d){return '<option value="'+d+'"'+(d===cur?' selected':'')+'>'+d+' '+fmt(d)+'</option>';}).join('')+'</select><button class="btn del" data-act="deld">この日を削除</button></div>';
+    h+='<div class="row" style="margin-top:10px"><select id="sel" data-ch="sel">'+ds.slice().reverse().map(function(d){return '<option value="'+d+'"'+(d===cur?' selected':'')+'>'+d+' '+fmt(d)+(locked(d)?' 🔒':'')+'</option>';}).join('')+'</select><button class="btn" data-act="lockd">'+(locked(cur)?'ロック解除':'確定する')+'</button><button class="btn del" data-act="deld"'+(locked(cur)?' disabled':'')+'>この日をごみ箱へ</button></div>';
   }
   h+='</div>';
   if(cur&&ms.length){
-    h+='<div class="card"><div class="row" style="justify-content:space-between;margin-bottom:6px"><h2 style="margin:0">'+fmt(cur)+' の出欠</h2><button class="btn" data-act="allp">全員出席にする</button></div>';
+    h+='<div class="card"><div class="row" style="justify-content:space-between;margin-bottom:6px"><h2 style="margin:0">'+fmt(cur)+' の出欠'+(locked(cur)?' 🔒確定済み':'')+'</h2><button class="btn" data-act="allp"'+(locked(cur)?' disabled':'')+'>全員出席にする</button></div>';
     ms.forEach(function(id){
-      var m=D.members[id],x=eff(cur,id)||{},g=D.grades[m.grade];
+      var m=D.members[id],x=eff(cur,id)||{},g=D.grades[m.grade],dis=locked(cur)?' disabled':'';
       if(m.grade!==lg){lg=m.grade;h+='<div class="note" style="font-weight:600;margin:10px 0 0">'+(g?esc(g.name):'学年なし')+'</div>';}
       h+='<div class="mem"><span class="nm">'+lamp(streak(id,cur))+esc(m.name)+(g?' <small>'+esc(g.name)+'</small>':'')+'</span><div class="st" data-id="'+id+'">'
-        +'<button class="p'+(x.s==='p'?' on':'')+'" data-b="p">出席</button>'
-        +'<button class="a'+(x.s==='a'?' on':'')+'" data-b="a">欠席</button>'
-        +'<button class="l'+(x.l?' on':'')+'" data-b="l">遅刻</button>'
-        +'<button class="e'+(x.e?' on':'')+'" data-b="e">早退</button>'
-        +'<button class="x'+(x.s==='x'?' on':'')+'" data-b="x">休団</button></div>';
+        +'<button class="p'+(x.s==='p'?' on':'')+'" data-b="p"'+dis+'>出席</button>'
+        +'<button class="a'+(x.s==='a'?' on':'')+'" data-b="a"'+dis+'>欠席</button>'
+        +'<button class="l'+(x.l?' on':'')+'" data-b="l"'+dis+'>遅刻</button>'
+        +'<button class="e'+(x.e?' on':'')+'" data-b="e"'+dis+'>早退</button>'
+        +'<button class="x'+(x.s==='x'?' on':'')+'" data-b="x"'+dis+'>休団</button></div>';
       if(x.s==='a'||x.l||x.e){
-        h+='<select data-ch="rsn" data-id="'+id+'"><option value="">理由を選択</option>'+rs.map(function(r){return '<option value="'+r+'"'+(x.r===r?' selected':'')+'>'+esc(D.reasons[r].name)+'</option>';}).join('')+'<option value="other"'+(x.r==='other'?' selected':'')+'>その他</option></select>';
-        if(x.r==='other')h+='<input type="text" id="note_'+cur+'_'+id+'" data-ch="note" data-id="'+id+'" placeholder="その他の内容(任意)" maxlength="60" value="'+esc(x.n||'')+'">';
+        h+='<select data-ch="rsn" data-id="'+id+'"'+dis+'><option value="">理由を選択</option>'+rs.map(function(r){return '<option value="'+r+'"'+(x.r===r?' selected':'')+'>'+esc(D.reasons[r].name)+'</option>';}).join('')+'<option value="other"'+(x.r==='other'?' selected':'')+'>その他</option></select>';
+        if(x.r==='other')h+='<input type="text" id="note_'+cur+'_'+id+'" data-ch="note" data-id="'+id+'" placeholder="その他の内容(任意)" maxlength="60"'+dis+' value="'+esc(x.n||'')+'">';
       }
       h+='</div>';
     });
@@ -285,7 +286,7 @@ function viewSt(){
 }
 
 function viewCf(){
-  var ms=ml(),gr=byT('grades'),rs=byT('reasons'),h=db?shareCard()+tabCard()+importCard():'';
+  var ms=ml(),gr=byT('grades'),rs=byT('reasons'),h=db?nameCard()+adminCard()+(ADMIN?shareCard()+historyCard():'')+tabCard()+trashCard()+(ADMIN?backupCard():''):'';
   if(old&&!ms.length&&(conn==='ok'||conn==='local')){
     h+='<div class="card warn"><h2>以前のデータがあります</h2><div class="note" style="margin:0 0 8px">このブラウザに保存されていた以前の出席データを、現在のデータに取り込めます。</div><button class="btn pri" data-act="mig">取り込む</button></div>';
   }
@@ -294,12 +295,12 @@ function viewCf(){
   if(ms.length){
     h+='<div style="margin-top:8px">'+ms.map(function(id){
       var m=D.members[id];
-      return '<div class="mem"><span class="nm">'+esc(m.name)+'</span><input type="text" data-ch="kana" data-id="'+id+'" placeholder="読み仮名" maxlength="30" value="'+esc(m.kana||'')+'" style="flex:1 1 100px"><select data-ch="mgr" data-id="'+id+'">'+gopt.replace('value="'+m.grade+'"','value="'+m.grade+'" selected')+'</select><select data-ch="mst" data-id="'+id+'"><option value="active"'+(mst(m)==='active'?' selected':'')+'>現団</option><option value="leave"'+(mst(m)==='leave'?' selected':'')+'>休団</option></select><button class="btn del" data-act="delm" data-id="'+id+'">削除</button>'+(mst(m)==='leave'?'<div class="row" style="flex-basis:100%;font-size:13px;color:var(--mut)">休団期間 <input type="date" data-ch="xf" data-id="'+id+'" value="'+(m.xf||'')+'"> 〜 <input type="date" data-ch="xt" data-id="'+id+'" value="'+(m.xt||'')+'"> 開始日が空なら最初から、終了日が空なら休団中</div>':'')+'</div>';
+      return '<div class="mem"><span class="nm">'+esc(m.name)+'</span><input type="text" data-ch="kana" data-id="'+id+'" placeholder="読み仮名" maxlength="30" value="'+esc(m.kana||'')+'" style="flex:1 1 100px"><select data-ch="mgr" data-id="'+id+'">'+gopt.replace('value="'+m.grade+'"','value="'+m.grade+'" selected')+'</select><select data-ch="mst" data-id="'+id+'"><option value="active"'+(mst(m)==='active'?' selected':'')+'>現団</option><option value="leave"'+(mst(m)==='leave'?' selected':'')+'>休団</option></select><button class="btn del" data-act="delm" data-id="'+id+'">ごみ箱へ</button>'+(mst(m)==='leave'?'<div class="row" style="flex-basis:100%;font-size:13px;color:var(--mut)">休団期間 <input type="date" data-ch="xf" data-id="'+id+'" value="'+(m.xf||'')+'"> 〜 <input type="date" data-ch="xt" data-id="'+id+'" value="'+(m.xt||'')+'"> 開始日が空なら最初から、終了日が空なら休団中</div>':'')+'</div>';
     }).join('')+'</div>';
   }else h+='<div class="empty">まだ誰もいません</div>';
   h+='</div>';
   h+='<div class="card"><h2>理由の項目(欠席・遅刻・早退)</h2><div class="row"><input type="text" id="rnm" placeholder="例: 授業、バイト、体調不良" maxlength="20"><button class="btn pri" data-act="addr">追加</button>'+(rs.length?'':'<button class="btn" data-act="seedr">よくある理由を追加</button>')+'</div>'
-    +'<div class="chips">'+rs.map(function(r){return '<span class="chip">'+esc(D.reasons[r].name)+'<button data-act="delr" data-id="'+r+'" aria-label="削除">×</button></span>';}).join('')+'</div></div>';
+    +'<div class="chips">'+rs.map(function(r){return '<span class="chip">'+esc(D.reasons[r].name)+(ADMIN?'<button data-act="delr" data-id="'+r+'" aria-label="削除">×</button>':'')+'</span>';}).join('')+'</div></div>';
   return h;
 }
 
@@ -307,7 +308,7 @@ function render(){
   var ds=Object.keys(D.dates).sort();
   if(!cur||!D.dates[cur])cur=ds.length?ds[ds.length-1]:null;
   var fid=document.activeElement&&document.activeElement.id,val={};
-  var ids0=['nm','nk','ngr','gnm','rnm','dt'];document.querySelectorAll('#app input[id^="note_"]').forEach(function(e){ids0.push(e.id);});
+  var ids0=['nm','nk','ngr','gnm','rnm','dt','apw','myn','myn2'];document.querySelectorAll('#app input[id^="note_"]').forEach(function(e){ids0.push(e.id);});
   ids0.forEach(function(i){var e=document.getElementById(i);if(e)val[i]=e.value;});
   var sbh='';
   if(db){sbh='<div class="stabs">'+tabList().map(function(id){return '<button data-sh="'+id+'" class="'+(id===sh?'on':'')+'">'+esc(tname(id))+'</button>';}).join('')+'<button data-act="atab" class="plus" aria-label="タブを追加">＋</button></div>';
@@ -331,12 +332,13 @@ document.addEventListener('click',function(ev){
   if(a==='addm'){var i=document.getElementById('nm'),v=i.value.trim();if(!v)return;
     if(Object.keys(D.members).some(function(k){return D.members[k].name===v;})){msg('同じ名前がすでにいます。');return;}
     var nk=document.getElementById('nk');put('members',uid(),{name:v,kana:nk.value.trim(),grade:document.getElementById('ngr').value,t:Date.now()});i.value='';nk.value='';return;}
-  if(a==='delm'){var m=D.members[id];if(m&&confirm('「'+m.name+'」を削除しますか?この人の記録も消えます。')){
-      Object.keys(D.rec).forEach(function(k){if(D.rec[k].m===id)del('rec',k);});del('members',id);}return;}
-  if(a==='addd'){var d=document.getElementById('dt').value;if(!d)return;if(!D.dates[d])put('dates',d,{d:d});cur=d;render();return;}
-  if(a==='deld'){if(cur&&confirm(cur+' の記録を削除しますか?')){var c=cur;
-      Object.keys(D.rec).forEach(function(k){if(D.rec[k].d===c)del('rec',k);});del('dates',c);}return;}
-  if(a==='allp'){Object.keys(D.members).forEach(function(m){if(!inLeave(cur,m))recSet(cur,m,{s:'p'});});return;}
+  if(a==='delm'){var m=D.members[id];if(m&&confirm('「'+m.name+'」をごみ箱に移動しますか?記録はそのまま残り、「設定」のごみ箱から復元できます。')){put('members',id,Object.assign({},m,{del:1,delAt:Date.now()}));}return;}
+  if(a==='addd'){var d=document.getElementById('dt').value;if(!d)return;
+    if(DEL.dates[d]){put('dates',d,{d:d});msg('ごみ箱にあった日にちを復元しました(出欠の記録も戻ります)。');}
+    else if(!D.dates[d])put('dates',d,{d:d});cur=d;render();return;}
+  if(a==='deld'){if(cur&&locked(cur)){msg('確定済みの日は削除できません。先に「ロック解除」を押してください。');return;}
+    if(cur&&confirm(cur+' をごみ箱に移動しますか?この日の出欠記録はそのまま残り、「設定」のごみ箱から復元できます。')){put('dates',cur,Object.assign({},D.dates[cur],{del:1,delAt:Date.now()}));}return;}
+  if(a==='allp'){if(locked(cur)){msg('この日は確定済みです。変更するには「ロック解除」を押してください。');return;}var cnt=0;quiet(function(){Object.keys(D.members).forEach(function(m){if(!inLeave(cur,m)){recSet(cur,m,{s:'p'});cnt++;}});});writeLog(cur+' を全員出席にした('+cnt+'人)');return;}
   if(a==='addg'||a==='addr'){var col=a==='addg'?'grades':'reasons',el=document.getElementById(a==='addg'?'gnm':'rnm'),n=el.value.trim();if(!n)return;
     if(Object.keys(D[col]).some(function(k){return D[col][k].name===n;})){el.value='';return;}
     put(col,uid(),{name:n,t:Date.now()});el.value='';return;}
@@ -344,7 +346,7 @@ document.addEventListener('click',function(ev){
     L.forEach(function(n,i){put(cc,uid(),{name:n,t:Date.now()+i});});return;}
   if(a==='delg'){var g=D.grades[id];if(g&&confirm('学年「'+g.name+'」を削除しますか?該当メンバーは「学年なし」になります。')){
       Object.keys(D.members).forEach(function(k){if(D.members[k].grade===id){var m2=Object.assign({},D.members[k]);m2.grade='';put('members',k,m2);}});del('grades',id);}return;}
-  if(a==='delr'){var r=D.reasons[id];if(r&&confirm('理由「'+r.name+'」を削除しますか?記録の理由は「未入力」になります。')){
+  if(a==='delr'){if(needAdmin())return;var r=D.reasons[id];if(r&&confirm('理由「'+r.name+'」を削除しますか?記録の理由は「未入力」になります。')){
       Object.keys(D.rec).forEach(function(k){if(D.rec[k].r===id){var x2=Object.assign({},D.rec[k]);x2.r='';put('rec',k,x2);}});del('reasons',id);}return;}
   if(a==='atab'){addTab=!addTab;render();setTimeout(function(){var e=document.getElementById('tn');if(e)e.focus();},0);return;}
   if(a==='mktab'){var tnn=document.getElementById('tn').value.trim();if(!tnn)return;
@@ -352,11 +354,10 @@ document.addEventListener('click',function(ev){
     db.doc('tabs/'+nid).set({name:tnn,t:Date.now()}).catch(werr);
     if(cp){['members','grades','reasons'].forEach(function(c){Object.keys(D[c]).forEach(function(k){db.doc(cn(c,nid)+'/'+k).set(D[c][k]).catch(werr);});});}
     else{['1年','2年','3年','4年','M1','M2'].forEach(function(n,i){db.doc(cn('grades',nid)+'/'+uid()).set({name:n,t:Date.now()+i}).catch(werr);});}
-    addTab=false;switchTab(nid);return;}
-  if(a==='rntab'){var rn=document.getElementById('tnm').value.trim();if(!rn)return;db.doc('tabs/'+sh).set({name:rn,t:sh==='main'?0:((TB[sh]&&TB[sh].t)||Date.now())}).catch(werr);return;}
-  if(a==='deltab'){if(sh!=='main'&&confirm('タブ「'+tname(sh)+'」を削除しますか?このタブのメンバー・出欠などすべてのデータが消えます。')){
-      var dsh=sh;COLS.forEach(function(c){Object.keys(D[c]).forEach(function(k){db.doc(cn(c,dsh)+'/'+k).delete().catch(werr);});});
-      db.doc('tabs/'+dsh).delete().catch(werr);switchTab('main');}return;}
+    writeLog('タブ「'+tnn+'」を作成');addTab=false;switchTab(nid);return;}
+  if(a==='rntab'){var rn=document.getElementById('tnm').value.trim();if(!rn)return;writeLog('タブ名を「'+tname(sh)+'」から「'+rn+'」に変更');db.doc('tabs/'+sh).set({name:rn,t:sh==='main'?0:((TB[sh]&&TB[sh].t)||Date.now())}).catch(werr);return;}
+  if(a==='deltab'){if(sh!=='main'&&confirm('タブ「'+tname(sh)+'」をごみ箱に移動しますか?データはそのまま残り、「設定」のごみ箱から復元できます。')){
+      writeLog('タブ「'+tname(sh)+'」をごみ箱へ');db.doc('tabs/'+sh).set(Object.assign({},TB[sh],{del:1,delAt:Date.now()})).catch(werr);switchTab('main');}return;}
   if(a==='clr'){R={from:'',to:''};render();return;}
   if(a==='mig'&&old){
     old.members.forEach(function(m,i){put('members',m.id,{name:m.name,grade:'',t:Date.now()+i});});
@@ -364,6 +365,7 @@ document.addEventListener('click',function(ev){
     Object.keys(old.rec||{}).forEach(function(k){var p=k.split('|'),x=old.rec[k];recSet(p[0],p[1],x);});
     try{localStorage.removeItem(LK);}catch(e){}old=null;render();return;}
   if(t.dataset.b){
+    if(locked(cur)){msg('この日は確定済みです。変更するには「ロック解除」を押してください。');return;}
     var mid=t.parentNode.dataset.id,b=t.dataset.b,o=D.rec[cur+'_'+mid]||{},x={s:o.s||'',l:o.l?1:0,e:o.e?1:0,r:o.r||'',n:o.n||''};
     if(b==='p'){if(x.s==='p'&&(x.l||x.e)){x={s:'p',l:0,e:0,r:''};}else if(x.s==='p'){x={s:'',l:0,e:0,r:''};}else{x={s:'p',l:0,e:0,r:''};}}
     else if(b==='a'){x=x.s==='a'?{s:'',l:0,e:0,r:''}:{s:'a',l:0,e:0,r:x.r,n:x.n};}
@@ -379,12 +381,12 @@ document.addEventListener('change',function(ev){
   else if(c==='f1'){R.from=t.value;render();}
   else if(c==='f2'){R.to=t.value;render();}
   else if(c==='mgr'||c==='kana'||c==='xf'||c==='xt'||c==='mst'){var m=D.members[t.dataset.id];if(m){var m2=Object.assign({},m);m2[{mgr:'grade',kana:'kana',xf:'xf',xt:'xt',mst:'st'}[c]]=c==='kana'?t.value.trim():t.value;put('members',t.dataset.id,m2);}}
-  else if(c==='rsn'){var o=D.rec[cur+'_'+t.dataset.id];if(o){var x=Object.assign({},o);x.r=t.value;if(t.value!=='other')x.n='';recSet(cur,t.dataset.id,x);}}
-  else if(c==='note'){var o2=D.rec[cur+'_'+t.dataset.id];if(o2){var x3=Object.assign({},o2);x3.n=t.value.trim();recSet(cur,t.dataset.id,x3);}}
+  else if(c==='rsn'){if(locked(cur))return;var o=D.rec[cur+'_'+t.dataset.id];if(o){var x=Object.assign({},o);x.r=t.value;if(t.value!=='other')x.n='';recSet(cur,t.dataset.id,x);}}
+  else if(c==='note'){if(locked(cur))return;var o2=D.rec[cur+'_'+t.dataset.id];if(o2){var x3=Object.assign({},o2);x3.n=t.value.trim();recSet(cur,t.dataset.id,x3);}}
 });
 document.addEventListener('keydown',function(ev){
   if(ev.key!=='Enter')return;
-  var m={nm:'addm',nk:'addm',gnm:'addg',rnm:'addr',tn:'mktab',tnm:'rntab'}[ev.target.id];
+  var m={nm:'addm',nk:'addm',gnm:'addg',rnm:'addr',tn:'mktab',tnm:'rntab',apw:'adminin',myn:'savename',myn2:'savename'}[ev.target.id];
   if(m){ev.preventDefault();var b=document.querySelector('[data-act='+m+']');if(b)b.click();}
 });
 
@@ -408,6 +410,94 @@ document.addEventListener('change',function(ev){
   };
   r.readAsText(f);ev.target.value='';
 });
+var DEL={members:{},dates:{}},TBDEL={};
+function locked(d){return !!(D.dates[d]&&D.dates[d].lk);}
+function dlf(name,text,type){var b=new Blob([text],{type:type}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},500);}
+function getAll(name){return db.collection(name).get().then(function(q){var o={};q.docs.forEach(function(d){o[d.id]=d.data();});return o;});}
+async function backup(){
+  msg('バックアップを作成中…');
+  try{
+    var tabs=await getAll('tabs');if(!tabs.main)tabs.main={name:'メイン',t:0};
+    var data={},ids=Object.keys(tabs);
+    for(var i=0;i<ids.length;i++){var o={};for(var j=0;j<COLS.length;j++){o[COLS[j]]=await getAll(cn(COLS[j],ids[i]));}data[ids[i]]=o;}
+    dlf('attendance-backup-'+today()+'.json',JSON.stringify({kind:'attendance-bundle',tabs:tabs,data:data}),'application/json');
+    msg('バックアップを保存しました。');
+  }catch(e){msg('バックアップを作成できませんでした。');}
+}
+function backupCard(){return '<div class="card"><h2>バックアップ</h2><div class="note" style="margin:0 0 8px">全タブ・ごみ箱の中身を含めて、ファイルに保存します。アプリの中に復元の機能はありません。必要になったときは、ファイルを持ってClaudeに相談してください。メンバーの名前が入っているので、公開される場所には置かないでください。</div><button class="btn" data-act="bkp">全データをバックアップ(JSON)</button></div>';}
+function trashCard(){
+  var dm=Object.keys(DEL.members),dd=Object.keys(DEL.dates).sort(),dt=Object.keys(TBDEL),h='<div class="card"><h2>ごみ箱</h2>';
+  if(!dm.length&&!dd.length&&!dt.length)return h+'<div class="empty">ごみ箱は空です。削除した日にち・メンバー・タブは、ここから復元できます。</div></div>';
+  function wh(v){if(!v.delAt)return '';var z=new Date(v.delAt);return (z.getMonth()+1)+'/'+z.getDate()+'に削除';}
+  function row(label,v,ar,ap,id){return '<div class="mem"><span class="nm">'+label+' <small>'+wh(v)+'</small></span><button class="btn" data-act="'+ar+'" data-id="'+id+'">復元</button>'+(ADMIN?'<button class="btn del" data-act="'+ap+'" data-id="'+id+'">完全に削除</button>':'')+'</div>';}
+  dd.forEach(function(d){h+=row(esc(d)+' '+fmt(d)+'(日にち)',DEL.dates[d],'rsd','pgd',d);});
+  dm.forEach(function(k){h+=row(esc(DEL.members[k].name)+'(メンバー)',DEL.members[k],'rsm','pgm',k);});
+  dt.forEach(function(k){h+=row(esc(TBDEL[k].name)+'(タブ)',TBDEL[k],'rst','pgt',k);});
+  return h+'<div class="note">このタブで削除した日にち・メンバーと、削除したタブが並びます。復元すると出欠の記録もそのまま戻ります。「完全に削除」は元に戻せません。完全に削除できるのは管理者だけです。</div></div>';
+}
+function unDel(v){var o=Object.assign({},v);delete o.del;delete o.delAt;return o;}
+document.addEventListener('click',function(ev){
+  var t=ev.target.closest('button');if(!t)return;var a=t.dataset.act,id=t.dataset.id;
+  if(a==='lockd'){if(!cur||!D.dates[cur])return;
+    if(locked(cur)){if(confirm('「'+cur+'」の確定を解除しますか?解除すると、出欠を変更できるようになります。'))put('dates',cur,Object.assign({},D.dates[cur],{lk:0}));}
+    else put('dates',cur,Object.assign({},D.dates[cur],{lk:1}));}
+  else if(a==='rsd'&&DEL.dates[id])put('dates',id,unDel(DEL.dates[id]));
+  else if(a==='rsm'&&DEL.members[id])put('members',id,unDel(DEL.members[id]));
+  else if(a==='rst'&&TBDEL[id]){writeLog('タブ「'+TBDEL[id].name+'」をごみ箱から復元');db.doc('tabs/'+id).set(unDel(TBDEL[id])).catch(werr);}
+  else if(a==='pgd'){if(needAdmin())return;if(confirm('「'+id+'」を完全に削除します(出欠の記録も消えます)。元に戻せません。よろしいですか?')){
+      quiet(function(){Object.keys(D.rec).forEach(function(k){if(D.rec[k].d===id)del('rec',k);});});del('dates',id);}}
+  else if(a==='pgm'&&DEL.members[id]){if(needAdmin())return;if(confirm('「'+DEL.members[id].name+'」を完全に削除します(出欠の記録も消えます)。元に戻せません。よろしいですか?')){
+      quiet(function(){Object.keys(D.rec).forEach(function(k){if(D.rec[k].m===id)del('rec',k);});});del('members',id);}}
+  else if(a==='pgt'&&TBDEL[id]){if(needAdmin())return;if(confirm('タブ「'+TBDEL[id].name+'」を完全に削除します。元に戻せません。よろしいですか?')){
+      writeLog('タブ「'+TBDEL[id].name+'」を完全に削除');COLS.forEach(function(c){var nm=cn(c,id);db.collection(nm).get().then(function(q){q.docs.forEach(function(d){db.doc(nm+'/'+d.id).delete().catch(werr);});}).catch(werr);});
+      db.doc('tabs/'+id).delete().catch(werr);}}
+  else if(a==='bkp')backup();
+});
+var ADMIN=false,HIST=[],histUn=null,LQ=0,ADMIN_EMAIL='admin@attendance.app';
+function ME(){return ls('att-name')||'(名前未設定)';}
+function quiet(fn){LQ++;try{fn();}finally{LQ--;}}
+function writeLog(t){if(!t||!db||!db.hist)return;try{db.hist.add({at:Date.now(),who:ME(),tab:tname(sh),text:t}).catch(function(){});}catch(e){}}
+function stLabel(x){if(!x||!x.s)return '未入力';var t={p:'出席',a:'欠席',x:'休団'}[x.s],ex=[];if(x.l)ex.push('遅刻');if(x.e)ex.push('早退');return t+(ex.length?'('+ex.join('・')+')':'');}
+function rsLabel(x){if(!x)return '';if(x.r==='other')return x.n?'その他:'+x.n:'その他';return x.r&&D.reasons[x.r]?D.reasons[x.r].name:'';}
+function mnm(m){return D.members[m]?D.members[m].name:(DEL.members[m]?DEL.members[m].name:'?');}
+function logText(c,o,n){
+  if(c==='rec'){var x=n||o;if(!n)return x.d+' '+mnm(x.m)+' の出欠記録を完全に削除';
+    var a=stLabel(o),b=stLabel(n),ra=rsLabel(o),rb=rsLabel(n);if(a===b&&ra===rb)return '';
+    return x.d+' '+mnm(x.m)+': '+a+' → '+b+(rb?'(理由: '+rb+')':'');}
+  if(c==='members'){if(!n)return '「'+o.name+'」を完全に削除';if(!o)return '「'+n.name+'」を追加';
+    if(n.del&&!o.del)return '「'+n.name+'」をごみ箱へ';if(!n.del&&o.del)return '「'+n.name+'」をごみ箱から復元';
+    var ch=[];if(o.name!==n.name)ch.push('名前 '+o.name+' → '+n.name);if((o.grade||'')!==(n.grade||''))ch.push('学年を変更');if((o.kana||'')!==(n.kana||''))ch.push('読み仮名を変更');
+    if((o.st||'')!==(n.st||'')||(o.xf||'')!==(n.xf||'')||(o.xt||'')!==(n.xt||''))ch.push('状態・休団期間を変更');
+    return ch.length?'「'+n.name+'」: '+ch.join('、'):'';}
+  if(c==='dates'){var d=(n||o).d;if(!n)return d+' を完全に削除(出欠の記録を含む)';if(!o)return d+' を追加';
+    if(n.del&&!o.del)return d+' をごみ箱へ';if(!n.del&&o.del)return d+' をごみ箱から復元';
+    if(!!n.lk!==!!o.lk)return d+(n.lk?' を確定(ロック)':' の確定を解除');return '';}
+  if(c==='grades'||c==='reasons'){var k=c==='grades'?'学年':'理由';if(!n)return k+'「'+o.name+'」を削除';if(!o)return k+'「'+n.name+'」を追加';return '';}
+  return '';
+}
+function logChange(c,id,o,n){if(LQ)return;writeLog(logText(c,o,n));}
+function unsubHist(){if(typeof histUn==='function'){try{histUn();}catch(e){}}histUn=null;}
+function subHist(){unsubHist();if(!db||!db.hist)return;histUn=db.hist.onSnapshot(function(s){HIST=s.docs.map(function(x){return x.data();});render();},function(){msg('変更履歴を読み込めません。Firestoreのルールの設定を確認してください。');});}
+function tm(at){var z=new Date(at);return (z.getMonth()+1)+'/'+z.getDate()+' '+('0'+z.getHours()).slice(-2)+':'+('0'+z.getMinutes()).slice(-2);}
+function historyCard(){
+  var h='<div class="card"><h2>変更履歴(管理者のみ)</h2>';
+  if(!HIST.length)return h+'<div class="empty">まだ履歴がありません。</div></div>';
+  h+='<div class="scroll"><table><tr><th>日時</th><th>操作した人</th><th>タブ</th><th>内容</th></tr>'+HIST.map(function(e){return '<tr><td>'+tm(e.at)+'</td><td>'+esc(e.who||'')+'</td><td>'+esc(e.tab||'')+'</td><td style="white-space:normal;text-align:left">'+esc(e.text||'')+'</td></tr>';}).join('')+'</table></div>';
+  return h+'<div class="note">最新200件を新しい順に表示します。操作した人の名前は、各端末で本人が入力したものです。</div></div>';
+}
+function nameCard(){return '<div class="card"><h2>この端末の名前</h2><div class="row"><input type="text" id="myn2" value="'+esc(ls('att-name')||'')+'" placeholder="あなたの名前(変更履歴に記録)" maxlength="20"><button class="btn pri" data-act="savename">保存</button></div></div>';}
+function nameBanner(){if(ls('att-name'))return '';return '<div class="card warn"><h2>名前を設定してください</h2><div class="note" style="margin:0 0 8px">誰が変更したかを変更履歴に残すため、あなたの名前を入力してください(この端末に保存されます)。</div><div class="row"><input type="text" id="myn" placeholder="あなたの名前" maxlength="20"><button class="btn pri" data-act="savename">保存</button></div></div>';}
+function adminCard(){
+  if(ADMIN)return '<div class="card"><h2>管理者</h2><div class="row"><span class="note" style="margin:0">管理者としてログイン中です。</span><button class="btn" data-act="adminout">ログアウト</button></div></div>';
+  return '<div class="card"><h2>管理者ログイン</h2><div class="note" style="margin:0 0 8px">管理者だけが、共有リンクと変更履歴を見られます。</div><div class="row"><input type="password" id="apw" placeholder="管理者パスワード" autocomplete="current-password"><button class="btn pri" data-act="adminin">ログイン</button></div></div>';
+}
+document.addEventListener('click',function(ev){
+  var t=ev.target.closest('button');if(!t)return;var a=t.dataset.act;
+  if(a==='savename'){var e=document.getElementById('myn')||document.getElementById('myn2'),v=(e?e.value:'').trim();if(!v)return;ls('att-name',v);msg('名前を保存しました。');}
+  else if(a==='adminin'){var pw=document.getElementById('apw').value;if(!pw||!db||!db.auth)return;db.auth.login(pw).catch(function(){msg('ログインできませんでした。パスワードを確認してください。');});}
+  else if(a==='adminout'&&db&&db.auth)db.auth.logout();
+});
+function needAdmin(){if(ADMIN)return false;msg('完全な削除は管理者だけができます。「設定」の管理者ログインからログインしてください。');return true;}
 /* ---- start (Firebase sync) ---- */
 var CFG=null,GID=null;
 function b64e(o){return btoa(unescape(encodeURIComponent(JSON.stringify(o))));}
@@ -446,20 +536,31 @@ document.addEventListener('click',function(ev){
   if(!window.__fb){conn='slow';render();return;}
   try{db=window.__fb(cfg,gid);}catch(e){conn='slow';msg('Firebaseの設定を読み込めませんでした。');return;}
   D={members:{},dates:{},grades:{},reasons:{},rec:{}};render();
-  db.collection('tabs').onSnapshot(function(s){var o={};s.docs.forEach(function(x){o[x.id]=x.data();});TB=o;if(sh!=='main'&&!TB[sh])switchTab('main');else render();},function(){});
+  db.collection('tabs').onSnapshot(function(s){var o={},dd={};s.docs.forEach(function(x){var v=x.data();if(v.del)dd[x.id]=v;else o[x.id]=v;});TB=o;TBDEL=dd;if(sh!=='main'&&!TB[sh])switchTab('main');else render();},function(){});
   subData();
+  if(db.auth)db.auth.onChange(function(u){ADMIN=!!u&&u.email===ADMIN_EMAIL;if(ADMIN)subHist();else{unsubHist();HIST=[];}render();});
   setTimeout(function(){if(conn==='loading'){conn='slow';render();}},10000);
 })();
 </script>
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {getFirestore,doc,setDoc,deleteDoc,collection,onSnapshot} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {getFirestore,doc,setDoc,deleteDoc,collection,onSnapshot,getDocs,query,orderBy,limit} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 window.__fb=function(cfg,gid){
-  var fs=getFirestore(initializeApp(cfg));
+  var app=initializeApp(cfg),fs=getFirestore(app),au=getAuth(app);
   function seg(p){return [fs,'groups',gid].concat(p.split('/'));}
   return {
     doc:function(p){var r=doc.apply(null,seg(p));return {set:function(o){return setDoc(r,o);},delete:function(){return deleteDoc(r);}};},
-    collection:function(p){var r=collection.apply(null,seg(p));return {onSnapshot:function(ok,err){return onSnapshot(r,function(q){ok({docs:q.docs.map(function(d){return {id:d.id,data:function(){return d.data();}};})});},err);}};}
+    collection:function(p){var r=collection.apply(null,seg(p));return {get:function(){return getDocs(r).then(function(q){return {docs:q.docs.map(function(d){return {id:d.id,data:function(){return d.data();}};})};});},onSnapshot:function(ok,err){return onSnapshot(r,function(q){ok({docs:q.docs.map(function(d){return {id:d.id,data:function(){return d.data();}};})});},err);}};},
+    hist:{
+      add:function(o){return setDoc(doc(fs,'history',gid,'log',o.at+'_'+Math.random().toString(36).slice(2,8)),o);},
+      onSnapshot:function(ok,err){return onSnapshot(query(collection(fs,'history',gid,'log'),orderBy('at','desc'),limit(200)),function(q){ok({docs:q.docs.map(function(d){return {id:d.id,data:function(){return d.data();}};})});},err);}
+    },
+    auth:{
+      login:function(pw){return signInWithEmailAndPassword(au,'admin@attendance.app',pw);},
+      logout:function(){return signOut(au);},
+      onChange:function(cb){return onAuthStateChanged(au,cb);}
+    }
   };
 };
 </script>
