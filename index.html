@@ -510,6 +510,9 @@ function authHint(c){
     'auth/invalid-api-key':'firebaseConfigが正しくありません','auth/api-key-not-valid.-please-pass-a-valid-api-key.':'firebaseConfigが正しくありません'};
   return m[c]||'原因を特定できませんでした';
 }
+var idleT=null,IDLE_MIN=15;
+function idleReset(){if(idleT){clearTimeout(idleT);idleT=null;}if(!ADMIN)return;idleT=setTimeout(function(){if(ADMIN&&db&&db.auth){db.auth.logout();msg('一定時間操作がなかったので、管理者をログアウトしました。');}},IDLE_MIN*60000);}
+['click','keydown','touchstart'].forEach(function(e){document.addEventListener(e,function(){if(ADMIN)idleReset();},true);});
 function needAdmin(){if(ADMIN)return false;msg('完全な削除は管理者だけができます。「設定」の管理者ログインからログインしてください。');return true;}
 /* ---- start (Firebase sync) ---- */
 var CFG=null,GID=null;
@@ -551,16 +554,16 @@ document.addEventListener('click',function(ev){
   D={members:{},dates:{},grades:{},reasons:{},rec:{}};render();
   db.collection('tabs').onSnapshot(function(s){var o={},dd={};s.docs.forEach(function(x){var v=x.data();if(v.del)dd[x.id]=v;else o[x.id]=v;});TB=o;TBDEL=dd;if(sh!=='main'&&!TB[sh])switchTab('main');else render();},function(){});
   subData();
-  if(db.auth)db.auth.onChange(function(u){ADMIN=!!u&&u.email===ADMIN_EMAIL;if(ADMIN)subHist();else{unsubHist();HIST=[];}render();});
+  if(db.auth)db.auth.onChange(function(u){ADMIN=!!u&&u.email===ADMIN_EMAIL;if(ADMIN)subHist();else{unsubHist();HIST=[];}render();idleReset();});
   setTimeout(function(){if(conn==='loading'){conn='slow';render();}},10000);
 })();
 </script>
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {getFirestore,doc,setDoc,deleteDoc,collection,onSnapshot,getDocs,query,orderBy,limit} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import {getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged,setPersistence,browserSessionPersistence} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 window.__fb=function(cfg,gid){
-  var app=initializeApp(cfg),fs=getFirestore(app),au=getAuth(app);
+  var app=initializeApp(cfg),fs=getFirestore(app),au=getAuth(app),persistReady=setPersistence(au,browserSessionPersistence).catch(function(){});
   function seg(p){return [fs,'groups',gid].concat(p.split('/'));}
   return {
     doc:function(p){var r=doc.apply(null,seg(p));return {set:function(o){return setDoc(r,o);},delete:function(){return deleteDoc(r);}};},
@@ -570,7 +573,7 @@ window.__fb=function(cfg,gid){
       onSnapshot:function(ok,err){return onSnapshot(query(collection(fs,'history',gid,'log'),orderBy('at','desc'),limit(200)),function(q){ok({docs:q.docs.map(function(d){return {id:d.id,data:function(){return d.data();}};})});},err);}
     },
     auth:{
-      login:function(pw){return signInWithEmailAndPassword(au,'admin@attendance.app',pw);},
+      login:function(pw){return persistReady.then(function(){return signInWithEmailAndPassword(au,'admin@attendance.app',pw);});},
       logout:function(){return signOut(au);},
       onChange:function(cb){return onAuthStateChanged(au,cb);}
     }
