@@ -36,6 +36,7 @@ textarea{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:
 .btn{padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);font-size:14px;cursor:pointer}
 .btn.pri{background:var(--acc);border-color:var(--acc);color:#fff}
 .btn.del{color:var(--ng)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));max-width:92%;background:var(--fg);color:var(--bg);padding:10px 14px;border-radius:10px;font-size:14px;z-index:50;box-shadow:0 4px 14px rgba(0,0,0,.25)}
 .st button:disabled,.btn:disabled,select:disabled,input:disabled{opacity:.55;cursor:not-allowed}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .chip{display:inline-flex;gap:6px;align-items:center;padding:4px 6px 4px 10px;border:1px solid var(--line);border-radius:99px;font-size:14px}
@@ -80,6 +81,7 @@ th{color:var(--mut);font-weight:500;font-size:13px}
 <div class="tabs"><button id="t-in" data-tab="in">入力</button><button id="t-st" data-tab="st">集計</button><button id="t-cf" data-tab="cf">設定</button></div>
 <div id="ms" class="note" style="margin:-6px 0 10px"></div>
 <div id="app"></div>
+<div id="toast" class="toast" style="display:none"></div>
 </main>
 <script>
 var LK='circle-attendance-v1',LK2='circle-attendance-v2';
@@ -133,7 +135,7 @@ function switchTab(id){
   cur=null;D={members:{},dates:{},grades:{},reasons:{},rec:{}};DEL={members:{},dates:{}};conn='loading';addTab=false;
   subData();render();
 }
-function tabCard(){return '<div class="card"><h2>このタブ</h2><div class="row"><input type="text" id="tnm" value="'+esc(tname(sh))+'" maxlength="20"><button class="btn pri" data-act="rntab">名前を変更</button>'+(sh==='main'?'':'<button class="btn del" data-act="deltab">このタブをごみ箱へ</button>')+'</div><div class="note">タブごとに、メンバー・日にち・出欠・理由が別々に保存されます。上のタブ列の「＋」で新しいタブを作れます。'+(sh==='main'?'最初のタブ(メイン)は削除できません。':'')+'</div></div>';}
+function tabCard(){return '<div class="card"><h2>このタブ</h2><div class="row"><input type="text" id="tnm" value="'+esc(tname(sh))+'" maxlength="20"><button class="btn pri" data-act="rntab">名前を変更</button>'+(sh==='main'?'':'<button class="btn del" data-act="deltab">このタブを削除</button>')+'</div><div class="note">タブごとに、メンバー・日にち・出欠・理由が別々に保存されます。上のタブ列の「＋」で新しいタブを作れます。'+(sh==='main'?'最初のタブ(メイン)は削除できません。':'')+'</div></div>';}
 
 /* ---- stats ---- */
 function stats(ids,dates){
@@ -194,7 +196,7 @@ function viewIn(){
   var ms=ml(),ds=Object.keys(D.dates).sort(),rs=byT('reasons'),lg=null,h=nameBanner();
   h+='<div class="card"><h2>日にち</h2><div class="row"><input type="date" id="dt" value="'+today()+'"><button class="btn pri" data-act="addd">日にちを追加</button></div>';
   if(ds.length){
-    h+='<div class="row" style="margin-top:10px"><select id="sel" data-ch="sel">'+ds.slice().reverse().map(function(d){return '<option value="'+d+'"'+(d===cur?' selected':'')+'>'+d+' '+fmt(d)+(locked(d)?' 🔒':'')+'</option>';}).join('')+'</select><button class="btn" data-act="lockd">'+(locked(cur)?'ロック解除':'確定する')+'</button><button class="btn del" data-act="deld"'+(locked(cur)?' disabled':'')+'>この日をごみ箱へ</button></div>';
+    h+='<div class="row" style="margin-top:10px"><select id="sel" data-ch="sel">'+ds.slice().reverse().map(function(d){return '<option value="'+d+'"'+(d===cur?' selected':'')+'>'+d+' '+fmt(d)+(locked(d)?' 🔒':'')+'</option>';}).join('')+'</select><button class="btn" data-act="lockd">'+(locked(cur)?'ロック解除':'確定する')+'</button><button class="btn del" data-act="deld"'+(locked(cur)?' disabled':'')+'>この日を削除</button></div>';
   }
   h+='</div>';
   if(cur&&ms.length){
@@ -295,7 +297,7 @@ function viewCf(){
   if(ms.length){
     h+='<div style="margin-top:8px">'+ms.map(function(id){
       var m=D.members[id];
-      return '<div class="mem"><span class="nm">'+esc(m.name)+'</span><input type="text" data-ch="kana" data-id="'+id+'" placeholder="読み仮名" maxlength="30" value="'+esc(m.kana||'')+'" style="flex:1 1 100px"><select data-ch="mgr" data-id="'+id+'">'+gopt.replace('value="'+m.grade+'"','value="'+m.grade+'" selected')+'</select><select data-ch="mst" data-id="'+id+'"><option value="active"'+(mst(m)==='active'?' selected':'')+'>現団</option><option value="leave"'+(mst(m)==='leave'?' selected':'')+'>休団</option></select><button class="btn del" data-act="delm" data-id="'+id+'">ごみ箱へ</button>'+(mst(m)==='leave'?'<div class="row" style="flex-basis:100%;font-size:13px;color:var(--mut)">休団期間 <input type="date" data-ch="xf" data-id="'+id+'" value="'+(m.xf||'')+'"> 〜 <input type="date" data-ch="xt" data-id="'+id+'" value="'+(m.xt||'')+'"> 開始日が空なら最初から、終了日が空なら休団中</div>':'')+'</div>';
+      return '<div class="mem"><span class="nm">'+esc(m.name)+'</span><input type="text" data-ch="kana" data-id="'+id+'" placeholder="読み仮名" maxlength="30" value="'+esc(m.kana||'')+'" style="flex:1 1 100px"><select data-ch="mgr" data-id="'+id+'">'+gopt.replace('value="'+m.grade+'"','value="'+m.grade+'" selected')+'</select><select data-ch="mst" data-id="'+id+'"><option value="active"'+(mst(m)==='active'?' selected':'')+'>現団</option><option value="leave"'+(mst(m)==='leave'?' selected':'')+'>休団</option></select><button class="btn del" data-act="delm" data-id="'+id+'">削除</button>'+(mst(m)==='leave'?'<div class="row" style="flex-basis:100%;font-size:13px;color:var(--mut)">休団期間 <input type="date" data-ch="xf" data-id="'+id+'" value="'+(m.xf||'')+'"> 〜 <input type="date" data-ch="xt" data-id="'+id+'" value="'+(m.xt||'')+'"> 開始日が空なら最初から、終了日が空なら休団中</div>':'')+'</div>';
     }).join('')+'</div>';
   }else h+='<div class="empty">まだ誰もいません</div>';
   h+='</div>';
@@ -305,6 +307,7 @@ function viewCf(){
 }
 
 function render(){
+  var tt=document.getElementById('toast');if(tt){tt.textContent=note;tt.style.display=note?'block':'none';}
   var ds=Object.keys(D.dates).sort();
   if(!cur||!D.dates[cur])cur=ds.length?ds[ds.length-1]:null;
   var fid=document.activeElement&&document.activeElement.id,val={};
@@ -332,12 +335,12 @@ document.addEventListener('click',function(ev){
   if(a==='addm'){var i=document.getElementById('nm'),v=i.value.trim();if(!v)return;
     if(Object.keys(D.members).some(function(k){return D.members[k].name===v;})){msg('同じ名前がすでにいます。');return;}
     var nk=document.getElementById('nk');put('members',uid(),{name:v,kana:nk.value.trim(),grade:document.getElementById('ngr').value,t:Date.now()});i.value='';nk.value='';return;}
-  if(a==='delm'){var m=D.members[id];if(m&&confirm('「'+m.name+'」をごみ箱に移動しますか?記録はそのまま残り、「設定」のごみ箱から復元できます。')){put('members',id,Object.assign({},m,{del:1,delAt:Date.now()}));}return;}
+  if(a==='delm'){var m=D.members[id];if(m&&confirm('「'+m.name+'」を削除しますか?(ごみ箱に入るので、あとから復元できます)')){put('members',id,Object.assign({},m,{del:1,delAt:Date.now()}));}return;}
   if(a==='addd'){var d=document.getElementById('dt').value;if(!d)return;
     if(DEL.dates[d]){put('dates',d,{d:d});msg('ごみ箱にあった日にちを復元しました(出欠の記録も戻ります)。');}
     else if(!D.dates[d])put('dates',d,{d:d});cur=d;render();return;}
   if(a==='deld'){if(cur&&locked(cur)){msg('確定済みの日は削除できません。先に「ロック解除」を押してください。');return;}
-    if(cur&&confirm(cur+' をごみ箱に移動しますか?この日の出欠記録はそのまま残り、「設定」のごみ箱から復元できます。')){put('dates',cur,Object.assign({},D.dates[cur],{del:1,delAt:Date.now()}));}return;}
+    if(cur&&confirm(cur+' を削除しますか?(ごみ箱に入るので、あとから復元できます)')){put('dates',cur,Object.assign({},D.dates[cur],{del:1,delAt:Date.now()}));}return;}
   if(a==='allp'){if(locked(cur)){msg('この日は確定済みです。変更するには「ロック解除」を押してください。');return;}var cnt=0;quiet(function(){Object.keys(D.members).forEach(function(m){if(!inLeave(cur,m)){recSet(cur,m,{s:'p'});cnt++;}});});writeLog(cur+' を全員出席にした('+cnt+'人)');return;}
   if(a==='addg'||a==='addr'){var col=a==='addg'?'grades':'reasons',el=document.getElementById(a==='addg'?'gnm':'rnm'),n=el.value.trim();if(!n)return;
     if(Object.keys(D[col]).some(function(k){return D[col][k].name===n;})){el.value='';return;}
@@ -356,8 +359,8 @@ document.addEventListener('click',function(ev){
     else{['1年','2年','3年','4年','M1','M2'].forEach(function(n,i){db.doc(cn('grades',nid)+'/'+uid()).set({name:n,t:Date.now()+i}).catch(werr);});}
     writeLog('タブ「'+tnn+'」を作成');addTab=false;switchTab(nid);return;}
   if(a==='rntab'){var rn=document.getElementById('tnm').value.trim();if(!rn)return;writeLog('タブ名を「'+tname(sh)+'」から「'+rn+'」に変更');db.doc('tabs/'+sh).set({name:rn,t:sh==='main'?0:((TB[sh]&&TB[sh].t)||Date.now())}).catch(werr);return;}
-  if(a==='deltab'){if(sh!=='main'&&confirm('タブ「'+tname(sh)+'」をごみ箱に移動しますか?データはそのまま残り、「設定」のごみ箱から復元できます。')){
-      writeLog('タブ「'+tname(sh)+'」をごみ箱へ');db.doc('tabs/'+sh).set(Object.assign({},TB[sh],{del:1,delAt:Date.now()})).catch(werr);switchTab('main');}return;}
+  if(a==='deltab'){if(sh!=='main'&&confirm('タブ「'+tname(sh)+'」を削除しますか?(ごみ箱に入るので、あとから復元できます)')){
+      writeLog('タブ「'+tname(sh)+'」を削除');db.doc('tabs/'+sh).set(Object.assign({},TB[sh],{del:1,delAt:Date.now()})).catch(werr);switchTab('main');}return;}
   if(a==='clr'){R={from:'',to:''};render();return;}
   if(a==='mig'&&old){
     old.members.forEach(function(m,i){put('members',m.id,{name:m.name,grade:'',t:Date.now()+i});});
@@ -465,12 +468,12 @@ function logText(c,o,n){
     var a=stLabel(o),b=stLabel(n),ra=rsLabel(o),rb=rsLabel(n);if(a===b&&ra===rb)return '';
     return x.d+' '+mnm(x.m)+': '+a+' → '+b+(rb?'(理由: '+rb+')':'');}
   if(c==='members'){if(!n)return '「'+o.name+'」を完全に削除';if(!o)return '「'+n.name+'」を追加';
-    if(n.del&&!o.del)return '「'+n.name+'」をごみ箱へ';if(!n.del&&o.del)return '「'+n.name+'」をごみ箱から復元';
+    if(n.del&&!o.del)return '「'+n.name+'」を削除';if(!n.del&&o.del)return '「'+n.name+'」をごみ箱から復元';
     var ch=[];if(o.name!==n.name)ch.push('名前 '+o.name+' → '+n.name);if((o.grade||'')!==(n.grade||''))ch.push('学年を変更');if((o.kana||'')!==(n.kana||''))ch.push('読み仮名を変更');
     if((o.st||'')!==(n.st||'')||(o.xf||'')!==(n.xf||'')||(o.xt||'')!==(n.xt||''))ch.push('状態・休団期間を変更');
     return ch.length?'「'+n.name+'」: '+ch.join('、'):'';}
   if(c==='dates'){var d=(n||o).d;if(!n)return d+' を完全に削除(出欠の記録を含む)';if(!o)return d+' を追加';
-    if(n.del&&!o.del)return d+' をごみ箱へ';if(!n.del&&o.del)return d+' をごみ箱から復元';
+    if(n.del&&!o.del)return d+' を削除';if(!n.del&&o.del)return d+' をごみ箱から復元';
     if(!!n.lk!==!!o.lk)return d+(n.lk?' を確定(ロック)':' の確定を解除');return '';}
   if(c==='grades'||c==='reasons'){var k=c==='grades'?'学年':'理由';if(!n)return k+'「'+o.name+'」を削除';if(!o)return k+'「'+n.name+'」を追加';return '';}
   return '';
@@ -494,9 +497,19 @@ function adminCard(){
 document.addEventListener('click',function(ev){
   var t=ev.target.closest('button');if(!t)return;var a=t.dataset.act;
   if(a==='savename'){var e=document.getElementById('myn')||document.getElementById('myn2'),v=(e?e.value:'').trim();if(!v)return;ls('att-name',v);msg('名前を保存しました。');}
-  else if(a==='adminin'){var pw=document.getElementById('apw').value;if(!pw||!db||!db.auth)return;db.auth.login(pw).catch(function(){msg('ログインできませんでした。パスワードを確認してください。');});}
+  else if(a==='adminin'){var pw=document.getElementById('apw').value;if(!pw||!db||!db.auth)return;db.auth.login(pw).catch(function(e){msg('ログインできませんでした: '+authHint(e&&e.code)+'('+((e&&e.code)||'不明')+')');});}
   else if(a==='adminout'&&db&&db.auth)db.auth.logout();
 });
+function authHint(c){
+  var m={'auth/operation-not-allowed':'Firebaseの「メール/パスワード」が有効になっていません',
+    'auth/invalid-credential':'ユーザー(admin@attendance.app)かパスワードが違います',
+    'auth/wrong-password':'パスワードが違います','auth/user-not-found':'ユーザー(admin@attendance.app)が登録されていません',
+    'auth/invalid-login-credentials':'ユーザー(admin@attendance.app)かパスワードが違います',
+    'auth/network-request-failed':'通信に失敗しました','auth/too-many-requests':'試行が多すぎます。しばらく待ってください',
+    'auth/configuration-not-found':'Authenticationの「始める」が押されていません',
+    'auth/invalid-api-key':'firebaseConfigが正しくありません','auth/api-key-not-valid.-please-pass-a-valid-api-key.':'firebaseConfigが正しくありません'};
+  return m[c]||'原因を特定できませんでした';
+}
 function needAdmin(){if(ADMIN)return false;msg('完全な削除は管理者だけができます。「設定」の管理者ログインからログインしてください。');return true;}
 /* ---- start (Firebase sync) ---- */
 var CFG=null,GID=null;
